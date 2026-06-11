@@ -32,6 +32,17 @@
           inherit output-monitor;
         };
 
+        apps = {
+          default = {
+            type = "app";
+            program = "${output-monitor}/bin/output-monitor";
+          };
+          output-monitor = {
+            type = "app";
+            program = "${output-monitor}/bin/output-monitor";
+          };
+        };
+
         devShells.default = pkgs.mkShell {
           buildInputs = with pkgs; [ go gopls gotools ];
         };

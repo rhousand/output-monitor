@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"flag"
 	"fmt"
 	"os"
 	"strings"
@@ -39,6 +40,7 @@ type model struct {
 	allLines    []string
 	filtLines   []string
 	terms       []string
+	ignoreCase  bool
 	width       int
 	height      int
 	ready       bool
@@ -47,9 +49,10 @@ type model struct {
 	followFilt  bool
 }
 
-func newModel(terms []string) model {
+func newModel(terms []string, ignoreCase bool) model {
 	return model{
 		terms:      terms,
+		ignoreCase: ignoreCase,
 		followAll:  true,
 		followFilt: true,
 	}
@@ -85,8 +88,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		matched := false
+		hay := line
+		if m.ignoreCase {
+			hay = strings.ToLower(line)
+		}
 		for _, term := range m.terms {
-			if strings.Contains(line, term) {
+			needle := term
+			if m.ignoreCase {
+				needle = strings.ToLower(term)
+			}
+			if strings.Contains(hay, needle) {
 				matched = true
 				break
 			}
@@ -147,7 +158,11 @@ func (m model) View() string {
 	}
 
 	allTitle := allHeader(fmt.Sprintf(" All Logs (%d lines)%s%s", len(m.allLines), status, followStatus))
-	filtTitle := filteredHeader(fmt.Sprintf(" Filtered: [%s] (%d lines)%s%s", strings.Join(m.terms, ", "), len(m.filtLines), status, followStatus))
+	caseFlag := ""
+	if m.ignoreCase {
+		caseFlag = " -i"
+	}
+	filtTitle := filteredHeader(fmt.Sprintf(" Filtered: [%s]%s (%d lines)%s%s", strings.Join(m.terms, ", "), caseFlag, len(m.filtLines), status, followStatus))
 	help := helpStyle.Render("q: quit • f: toggle follow • ↑↓/pgup/pgdn: scroll")
 
 	return lipgloss.JoinVertical(lipgloss.Left,
@@ -160,9 +175,16 @@ func (m model) View() string {
 }
 
 func main() {
-	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "usage: output-monitor <term> [term...]")
-		fmt.Fprintln(os.Stderr, "example: dbt run 2>&1 | output-monitor ERROR WARNING")
+	ignoreCase := flag.Bool("i", false, "case-insensitive matching")
+	flag.Usage = func() {
+		fmt.Fprintln(os.Stderr, "usage: output-monitor [-i] <term> [term...]")
+		fmt.Fprintln(os.Stderr, "example: dbt run 2>&1 | output-monitor -i error warning")
+		flag.PrintDefaults()
+	}
+	flag.Parse()
+
+	if flag.NArg() < 1 {
+		flag.Usage()
 		os.Exit(1)
 	}
 
@@ -173,7 +195,7 @@ func main() {
 	}
 	defer tty.Close()
 
-	m := newModel(os.Args[1:])
+	m := newModel(flag.Args(), *ignoreCase)
 	p := tea.NewProgram(m, tea.WithInput(tty), tea.WithAltScreen())
 
 	go func() {

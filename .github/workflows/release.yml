@@ -60,10 +60,13 @@ jobs:
             -w /workspace \
             ubuntu:22.04 bash -c "
               apt-get update -qq &&
-              apt-get install -y flatpak flatpak-builder &&
+              apt-get install -y flatpak &&
               flatpak remote-add --system --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo &&
               flatpak install -y --system flathub org.freedesktop.Platform//23.08 org.freedesktop.Sdk//23.08 &&
-              flatpak-builder --repo=flatpak-repo-aarch64 --force-clean flatpak-build-aarch64 com.github.rhousand.output-monitor.aarch64.json &&
+              flatpak build-init flatpak-build-aarch64 com.github.rhousand.output-monitor org.freedesktop.Sdk org.freedesktop.Platform 23.08 &&
+              install -Dm755 dist/output-monitor-linux-arm64 flatpak-build-aarch64/files/bin/output-monitor &&
+              flatpak build-finish flatpak-build-aarch64 --command=output-monitor --device=all --share=ipc --filesystem=host &&
+              flatpak build-export flatpak-repo-aarch64 flatpak-build-aarch64 &&
               flatpak build-bundle flatpak-repo-aarch64 dist/output-monitor-linux-aarch64.flatpak com.github.rhousand.output-monitor
             "
 

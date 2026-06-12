@@ -1,0 +1,60 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Set version
+        id: version
+        run: echo "version=$(date +'%Y.%m.%d')-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Build binaries
+        run: |
+          mkdir dist
+          GOOS=linux  GOARCH=amd64 go build -ldflags="-s -w" -o dist/output-monitor-linux-amd64  .
+          GOOS=linux  GOARCH=arm64 go build -ldflags="-s -w" -o dist/output-monitor-linux-arm64  .
+          GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o dist/output-monitor-darwin-amd64 .
+          GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o dist/output-monitor-darwin-arm64 .
+
+      - name: Install Flatpak tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y flatpak flatpak-builder
+          sudo flatpak remote-add --system --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+          sudo flatpak install -y --system flathub \
+            org.freedesktop.Platform//23.08 \
+            org.freedesktop.Sdk//23.08
+
+      - name: Build Flatpak
+        run: |
+          flatpak-builder --repo=flatpak-repo --force-clean flatpak-build \
+            com.github.rhousand.output-monitor.json
+          flatpak build-bundle flatpak-repo \
+            dist/output-monitor-linux-amd64.flatpak \
+            com.github.rhousand.output-monitor
+
+      - name: Checksums
+        run: cd dist && sha256sum * > checksums.txt
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.version }}
+          name: ${{ steps.version.outputs.version }}
+          make_latest: true
+          files: dist/*

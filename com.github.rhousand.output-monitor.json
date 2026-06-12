@@ -1,0 +1,27 @@
+{
+  "app-id": "com.github.rhousand.output-monitor",
+  "runtime": "org.freedesktop.Platform",
+  "runtime-version": "23.08",
+  "sdk": "org.freedesktop.Sdk",
+  "command": "output-monitor",
+  "finish-args": [
+    "--device=tty",
+    "--share=ipc",
+    "--filesystem=host"
+  ],
+  "modules": [
+    {
+      "name": "output-monitor",
+      "buildsystem": "simple",
+      "build-commands": [
+        "install -Dm755 output-monitor-linux-amd64 /app/bin/output-monitor"
+      ],
+      "sources": [
+        {
+          "type": "file",
+          "path": "dist/output-monitor-linux-amd64"
+        }
+      ]
+    }
+  ]
+}

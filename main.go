@@ -281,7 +281,11 @@ func (m model) resize() model {
 	}
 	if !m.ready {
 		m.allVP = viewport.New(m.width, paneHeight)
+		m.allVP.SetContent(strings.Join(m.allLines, "\n"))
+		m.allVP.GotoBottom()
 		m.filteredVP = viewport.New(m.width, paneHeight)
+		m.filteredVP.SetContent(strings.Join(m.filtLines, "\n"))
+		m.filteredVP.GotoBottom()
 		m.ready = true
 	} else {
 		m.allVP.Width = m.width

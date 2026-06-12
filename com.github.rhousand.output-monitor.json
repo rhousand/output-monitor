@@ -5,7 +5,7 @@
   "sdk": "org.freedesktop.Sdk",
   "command": "output-monitor",
   "finish-args": [
-    "--device=tty",
+    "--device=all",
     "--share=ipc",
     "--filesystem=host"
   ],

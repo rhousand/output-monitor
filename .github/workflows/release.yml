@@ -31,6 +31,11 @@ jobs:
           GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o dist/output-monitor-darwin-amd64 .
           GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o dist/output-monitor-darwin-arm64 .
 
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
       - name: Install Flatpak tools
         run: |
           sudo apt-get update -qq
@@ -40,13 +45,27 @@ jobs:
             org.freedesktop.Platform//23.08 \
             org.freedesktop.Sdk//23.08
 
-      - name: Build Flatpak
+      - name: Build Flatpak (x86_64)
         run: |
-          flatpak-builder --repo=flatpak-repo --force-clean flatpak-build \
+          flatpak-builder --repo=flatpak-repo-x86_64 --force-clean flatpak-build-x86_64 \
             com.github.rhousand.output-monitor.json
-          flatpak build-bundle flatpak-repo \
-            dist/output-monitor-linux-amd64.flatpak \
+          flatpak build-bundle flatpak-repo-x86_64 \
+            dist/output-monitor-linux-x86_64.flatpak \
             com.github.rhousand.output-monitor
+
+      - name: Build Flatpak (aarch64)
+        run: |
+          docker run --rm --platform linux/arm64 --privileged \
+            -v "${{ github.workspace }}:/workspace" \
+            -w /workspace \
+            ubuntu:22.04 bash -c "
+              apt-get update -qq &&
+              apt-get install -y flatpak flatpak-builder &&
+              flatpak remote-add --system --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo &&
+              flatpak install -y --system flathub org.freedesktop.Platform//23.08 org.freedesktop.Sdk//23.08 &&
+              flatpak-builder --repo=flatpak-repo-aarch64 --force-clean flatpak-build-aarch64 com.github.rhousand.output-monitor.aarch64.json &&
+              flatpak build-bundle flatpak-repo-aarch64 dist/output-monitor-linux-aarch64.flatpak com.github.rhousand.output-monitor
+            "
 
       - name: Checksums
         run: cd dist && sha256sum * > checksums.txt

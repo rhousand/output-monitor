@@ -1,6 +1,8 @@
 # output-monitor
 
-Split-pane TUI that pipes stdout into two views: all logs on top, filtered matches on bottom.
+A terminal TUI log viewer for Linux and macOS. Pipes any command's stdout into a split-pane display — all logs on top, filtered matches highlighted on bottom. Built for monitoring long-running CLI tools like dbt, CI pipelines, and build systems.
+
+![demo](demo.gif)
 
 ```
 dbt run 2>&1 | output-monitor ERROR WARNING

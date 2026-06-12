@@ -1,3 +1,5 @@
 output-monitor
 *.exe
 test.sh
+demo.tape
+demo_run.sh

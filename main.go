@@ -150,10 +150,10 @@ type model struct {
 	done         bool
 	followAll    bool
 	followFilt   bool
-	startTime    time.Time
-	contextBuf   []string // sliding window of last contextN display lines
-	contextAfter int      // lines remaining to show after current match
-	inMatchGroup bool     // true while in a context window
+	startTime        time.Time
+	lastShownAllIdx  int  // allLines index of most recently added filtLines entry
+	contextAfter     int  // lines remaining to show after current match
+	inMatchGroup     bool // true while inside a context window
 }
 
 func newModel(terms []string, patterns []pattern, ignoreCase, useRegex, timestamps bool, contextN int, bell bool, tty *os.File) model {
@@ -172,8 +172,9 @@ func newModel(terms []string, patterns []pattern, ignoreCase, useRegex, timestam
 		bell:       bell,
 		tty:        tty,
 		followAll:  true,
-		followFilt: true,
-		startTime:  time.Now(),
+		followFilt:      true,
+		startTime:       time.Now(),
+		lastShownAllIdx: -1,
 	}
 }
 
@@ -220,16 +221,28 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		prevFiltLen := len(m.filtLines)
+		currentAllIdx := len(m.allLines) - 1
 		matched := matchLine(raw, m.patterns, m.ignoreCase)
 
 		if matched {
-			if m.contextN > 0 && len(m.filtLines) > 0 && !m.inMatchGroup {
-				m.filtLines = append(m.filtLines, separatorStyle.Render("---"))
-				for _, cl := range m.contextBuf {
-					m.filtLines = append(m.filtLines, contextStyle.Render(cl))
+			if m.contextN > 0 && !m.inMatchGroup {
+				if len(m.filtLines) > 0 {
+					m.filtLines = append(m.filtLines, separatorStyle.Render("---"))
+				}
+				// pre-context: allLines[startIdx..currentAllIdx), skipping already-shown lines
+				startIdx := currentAllIdx - m.contextN
+				if startIdx < 0 {
+					startIdx = 0
+				}
+				if startIdx <= m.lastShownAllIdx {
+					startIdx = m.lastShownAllIdx + 1
+				}
+				for i := startIdx; i < currentAllIdx; i++ {
+					m.filtLines = append(m.filtLines, contextStyle.Render(m.allLines[i]))
 				}
 			}
 			m.filtLines = append(m.filtLines, highlightLine(display, m.patterns, m.termColors, m.ignoreCase))
+			m.lastShownAllIdx = currentAllIdx
 			m.contextAfter = m.contextN
 			m.inMatchGroup = m.contextN > 0
 
@@ -238,6 +251,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		} else if m.contextAfter > 0 {
 			m.filtLines = append(m.filtLines, contextStyle.Render(display))
+			m.lastShownAllIdx = currentAllIdx
 			m.contextAfter--
 			if m.contextAfter == 0 {
 				m.inMatchGroup = false
@@ -250,13 +264,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.filteredVP.SetContent(strings.Join(m.filtLines, "\n"))
 			if m.followFilt {
 				m.filteredVP.GotoBottom()
-			}
-		}
-
-		if m.contextN > 0 {
-			m.contextBuf = append(m.contextBuf, display)
-			if len(m.contextBuf) > m.contextN {
-				m.contextBuf = m.contextBuf[1:]
 			}
 		}
 
